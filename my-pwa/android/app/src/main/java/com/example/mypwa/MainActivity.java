@@ -4,12 +4,14 @@ import android.os.Bundle;
 import android.view.View;
 import com.getcapacitor.BridgeActivity;
 
+import com.example.mypwa.HardwarePlugin;
+
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    
     // Code pour le mode Immersif "Sticky"
+    registerPlugin(HardwarePlugin.class); // On enregistre le nouveau plugin
+    super.onCreate(savedInstanceState);
     makeFullScreen();
   }
 
