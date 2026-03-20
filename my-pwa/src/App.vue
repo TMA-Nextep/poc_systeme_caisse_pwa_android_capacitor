@@ -44,6 +44,19 @@ const handleTestPrint = async () => {
     return;
   }
 
+const handleRealPrint = async () => {
+  try {
+    await Hardware.realPrint({
+      ip: '192.168.1.50', // METTRE L'IP REELLE ICI
+      port: 9100,
+      content: 'BON DE COMMANDE\n----------------\n1x Pizza Regina\n1x Coca Cola\n----------------\nMerci !'
+    });
+    alert("Impression lancée !");
+  } catch (e) {
+    alert("Erreur : " + e.message);
+  }
+};
+
   isPrinting.value = true;
   try {
     // On appelle la méthode Kotlin que nous avons créée
