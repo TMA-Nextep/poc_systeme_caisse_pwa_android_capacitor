@@ -1,0 +1,6 @@
+On doit encore tester la première connexion réseau vers l'imprimange pour voir si le bridge arrive à joindre l'IP 
+- brancher une imprimante thermique sur le réseau local
+- tester si on peut lui envoyer l'ordre d'imprimer
+Attention dans le code App.vue l'ip est fixe
+- pour le projet Système de caisse c'est le cloud distant qui donnera l'ip de l'imprimante à appeler
+- le texte à imprimer viendra aussi du cloud distant

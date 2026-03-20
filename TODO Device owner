@@ -1,0 +1,99 @@
+Si les boutons sont toujours là malgré ton code, c'est parce que sur les versions récentes d'Android (11, 12, 13+), le système de "Flags" (setSystemUiVisibility) est devenu obsolète ou moins puissant pour laisser place à l'InsetsController.
+
+Pour passer au niveau "Device Owner" (le mode Kiosque ultime) et supprimer physiquement l'accès aux boutons, voici la marche à suivre.
+
+Étape 1 : Le code "Brute Force" pour masquer les barres
+Remplace ta méthode makeFullScreen par celle-ci, qui utilise les nouvelles API Android. Elle force le masquage même si l'utilisateur essaie de toucher l'écran.
+
+Java
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+
+private void makeFullScreen() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        final WindowInsetsController controller = getWindow().getInsetsController();
+        if (controller != null) {
+            // Masque les barres de navigation et de statut
+            controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+            // Empêche les barres de réapparaître au moindre toucher (mode immersif)
+            controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        }
+    } else {
+        // Ancienne méthode pour compatibilité
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+    }
+}
+Étape 2 : Préparer le mode "Device Owner"
+Pour que le système te donne les pleins pouvoirs (bloquer Home, Recent, Power), il faut déclarer un "Receiver".
+
+Crée un nouveau fichier Java nommé AdminReceiver.java dans le même dossier que ta MainActivity :
+
+Java
+package com.example.mypwa;
+import android.app.admin.DeviceAdminReceiver;
+public class AdminReceiver extends DeviceAdminReceiver { }
+Ajoute ceci dans ton AndroidManifest.xml (à l'intérieur de la balise <application>) :
+
+XML
+<receiver
+    android:name=".AdminReceiver"
+    android:permission="android.permission.BIND_DEVICE_ADMIN"
+    android:exported="true">
+    <meta-data
+        android:name="android.app.device_admin"
+        android:resource="@xml/device_admin_rules" />
+    <intent-filter>
+        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+    </intent-filter>
+</receiver>
+Crée un dossier xml dans app/src/main/res/ et ajoute un fichier device_admin_rules.xml :
+
+XML
+<device-admin></device-admin>
+Étape 3 : Activer le mode via ADB (Crucial)
+Le code seul ne suffit pas pour devenir "Device Owner" (sinon n'importe quel virus pourrait bloquer ton téléphone). Il faut donner l'ordre via ton PC.
+
+Supprime tous les comptes Google du téléphone (Paramètres > Comptes). C'est obligatoire pour activer ce mode.
+
+Branche le téléphone en USB.
+
+Tape cette commande dans ton terminal PC :
+
+Bash
+adb shell dpm set-device-owner com.example.mypwa/.AdminReceiver
+Si tu vois "Success", ton app est maintenant le "Dictateur" du téléphone.
+
+Étape 4 : Verrouiller pour de bon dans MainActivity
+Maintenant que tu es Device Owner, ajoute ceci dans ton onCreate :
+
+Java
+DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+ComponentName adminName = new ComponentName(this, AdminReceiver.class);
+
+if (dpm.isDeviceOwnerApp(getPackageName())) {
+    // Liste des packages autorisés à être épinglés (le tien)
+    dpm.setLockTaskPackages(adminName, new String[]{getPackageName()});
+    // Verrouillage total : plus aucun bouton ne fonctionne
+    startLockTask();
+}
+Le résultat :
+L'utilisateur ne pourra plus :
+
+Faire apparaître les boutons avec un swipe.
+
+Quitter l'app avec Home ou Retour.
+
+Voir les notifications.
+
+Éteindre le téléphone facilement.
+
+Attention : Une fois en Device Owner, il est très difficile de supprimer l'app sans faire un "Factory Reset" du téléphone ou utiliser une commande ADB de suppression.
+
+Est-ce que tu veux essayer la commande ADB pour voir si le téléphone accepte le grade de "Device Owner" ?
