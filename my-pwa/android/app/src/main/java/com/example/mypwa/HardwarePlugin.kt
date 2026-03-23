@@ -72,4 +72,48 @@ class HardwarePlugin : Plugin() {
             }
         }
     }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @PluginMethod
+    fun discoverPrinters(call: PluginCall) {
+        val port = 9100
+        val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+        val ipAddress = wifiManager.connectionInfo.ipAddress
+        val prefix = String.format("%d.%d.%d.", (ipAddress and 0xff), (ipAddress shr 8 and 0xff), (ipAddress shr 16 and 0xff))
+
+        scope.launch {
+            val foundDevices = mutableListOf<String>()
+            val jobs = mutableListOf<Job>()
+
+            for (i in 1..254) {
+                val testIp = prefix + i
+                jobs += launch(Dispatchers.IO) {
+                    // Envoyer l'info à Vue que l'on scanne cette IP
+                    val progress = JSObject()
+                    progress.put("scanning", testIp)
+                    notifyListeners("scanProgress", progress)
+
+                    try {
+                        val socket = java.net.Socket()
+                        socket.connect(java.net.InetSocketAddress(testIp, port), 400)
+                        socket.close()
+                        
+                        synchronized(foundDevices) { foundDevices.add(testIp) }
+                        
+                        // Envoyer l'info qu'une imprimante a été trouvée
+                        val found = JSObject()
+                        found.put("ip", testIp)
+                        notifyListeners("printerFound", found)
+                    } catch (e: Exception) { }
+                }
+            }
+            
+            jobs.joinAll()
+
+            withContext(Dispatchers.Main) {
+                val ret = JSObject()
+                ret.put("printers", com.getcapacitor.JSArray(foundDevices))
+                call.resolve(ret)
+            }
+        }
+    }
 }
