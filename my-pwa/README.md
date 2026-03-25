@@ -25,6 +25,17 @@ Si le mirorring de Visual Studio ne fonctionne pas avec en USB avec:
 .\scrcpy.exe --video-encoder=OMX.google.h264.encoder --always-on-top --window-title="Mirroring RK3588"
 ```
 
+Si la tablette n'a pas accès à internet via Ethernet ou Wifi
+On utilise l'outil gnirehtet qui va permettre de partager la connexion internet du PC branché en USB à la tablette
+```powershell
+télécharger gnirehtet : https://github.com/Genymobile/gnirehtet/releases
+Gnirehtet a besoin de avoir adb directemnet accessible dans son dossier
+cp .\adb.exe .\AdbWinApi.dll .\AdbWinUsbApi.dll C:\Users\tm\Downloads\gnirehtet-rust-win6
+
+Dans le dossier gnirehtet lancer la commande de tunnel "vpn"
+.\gnirehtet.exe run
+```
+
 ### 2. Installation et Préparation (Root : `my-pwa`)
 Si vous venez de cloner le projet, suivez cet ordre précis :
 

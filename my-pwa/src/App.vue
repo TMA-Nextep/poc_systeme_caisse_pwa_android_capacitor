@@ -17,10 +17,13 @@ const isPrinting = ref(false)
 const isScanning = ref(false)
 const foundPrinters = ref([])
 const selectedIp = ref('192.168.1.50')
+const scannedData = ref('')
+const scannedCodes = ref([])
+const scanInput = ref(null)
 
-// AJOUT DES VARIABLES DE SCAN MANQUANTES
-const currentScanningIp = ref('')
-const scannedIpsCount = ref(0)
+// AJOUT DES VARIABLES DE SCAN Network MANQUANTES
+const currentScanningNetworkIp = ref('')
+const scannedNetworkIpsCount = ref(0)
 
 onMounted(async () => {
   if (Capacitor.isNativePlatform()) {
@@ -43,8 +46,8 @@ onMounted(async () => {
   // ON PLACE LES ÉCOUTEURS ICI, DANS LE ONMOUNTED
   if (Hardware) {
     await Hardware.addListener('scanProgress', (data) => {
-      currentScanningIp.value = data.scanning;
-      scannedIpsCount.value++;
+      currentScanningNetworkIp.value = data.scanning;
+      scannedNetworkIpsCount.value++;
     });
 
     await Hardware.addListener('printerFound', (data) => {
@@ -57,18 +60,44 @@ onMounted(async () => {
 
 // --- MÉTHODES ---
 
+const handleBarcode = (e) => {
+  if (e.key === 'Enter') {
+    if (scannedData.value.trim() !== '') {
+      // On ajoute le code au début de la liste (unshift)
+      // On ajoute aussi l'heure pour s'y retrouver
+      const newEntry = {
+        code: scannedData.value,
+        time: new Date().toLocaleTimeString()
+      };
+      
+      scannedCodes.value.unshift(newEntry);
+      
+      // On vide le champ pour le prochain scan
+      scannedData.value = '';
+    }
+  }
+};
+
+const clearList = () => {
+  scannedCodes.value = [];
+};
+
+const keepFocus = () => {
+  if (scanInput.value) scanInput.value.focus();
+};
+
 const scanForPrinters = async () => {
   if (!Hardware) return;
   isScanning.value = true;
   foundPrinters.value = [];
-  scannedIpsCount.value = 0;
+  scannedNetworkIpsCount.value = 0;
   try {
     await Hardware.discoverPrinters();
   } catch (e) {
     console.error(e);
   } finally {
     isScanning.value = false;
-    currentScanningIp.value = 'Terminé';
+    currentScanningNetworkIp.value = 'Terminé';
   }
 };
 
@@ -118,9 +147,9 @@ const handleTestPrint = async () => {
       </button>
 
       <div v-if="isScanning" class="scan-monitor">
-        <p>Scan en cours : <strong>{{ currentScanningIp }}</strong></p>
-        <progress :value="scannedIpsCount" max="254" style="width: 100%"></progress>
-        <small>{{ scannedIpsCount }} / 254 adresses testées</small>
+        <p>Scan en cours : <strong>{{ currentScanningNetworkIp }}</strong></p>
+        <progress :value="scannedNetworkIpsCount" max="254" style="width: 100%"></progress>
+        <small>{{ scannedNetworkIpsCount }} / 254 adresses testées</small>
       </div>
 
       <div v-if="foundPrinters.length > 0" class="printer-list">
@@ -151,6 +180,41 @@ const handleTestPrint = async () => {
     </div>
   </div>
 
+  <div class="section scanner-section">
+    <h3>Scanner QR / NFC</h3>
+    
+    <div class="input-wrapper">
+      <input 
+        ref="scanInput"
+        v-model="scannedData" 
+        @keydown="handleBarcode"
+        placeholder="Scannez ici..."
+        class="scan-input"
+        autocomplete="off"
+      />
+      <button @click="keepFocus" class="focus-indicator">🎯</button>
+    </div>
+
+    <div class="history-container">
+      <div class="history-header">
+        <span>Historique ({{ scannedCodes.length }})</span>
+        <button @click="clearList" class="clear-btn" v-if="scannedCodes.length > 0">
+          🗑️ Effacer tout
+        </button>
+      </div>
+
+      <ul class="code-list">
+        <li v-for="(item, index) in scannedCodes" :key="index" class="code-item">
+          <span class="code-text">{{ item.code }}</span>
+          <span class="code-time">{{ item.time }}</span>
+        </li>
+        <li v-if="scannedCodes.length === 0" class="empty-msg">
+          Aucun scan pour le moment
+        </li>
+      </ul>
+    </div>
+  </div>
+
   <HelloWorld />
 </template>
 
@@ -176,4 +240,84 @@ const handleTestPrint = async () => {
 .offline { background-color: #f8d7da; color: #721c24; }
 .print-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 12px; border: none; background-color: #4f46e5; color: white; width: 100%; cursor: pointer; }
 .print-btn:disabled { background-color: #9ca3af; }
+.scanner-section {
+  background: #f3f4f6;
+  padding: 15px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.input-wrapper {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.scan-input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #6366f1;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.history-container {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background: #e5e7eb;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.clear-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.code-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px; /* Liste défilante */
+  overflow-y: auto;
+}
+
+.code-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-bottom: 1px solid #f3f4f6;
+  font-family: monospace;
+}
+
+.code-text {
+  color: #1f2937;
+  font-weight: bold;
+}
+
+.code-time {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.empty-msg {
+  padding: 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+}
 </style>
