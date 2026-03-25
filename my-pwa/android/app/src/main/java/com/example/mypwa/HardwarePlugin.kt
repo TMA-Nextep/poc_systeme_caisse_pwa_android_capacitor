@@ -75,10 +75,41 @@ class HardwarePlugin : Plugin() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     @PluginMethod
     fun discoverPrinters(call: PluginCall) {
+        
         val port = 9100
-        val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
-        val ipAddress = wifiManager.connectionInfo.ipAddress
-        val prefix = String.format("%d.%d.%d.", (ipAddress and 0xff), (ipAddress shr 8 and 0xff), (ipAddress shr 16 and 0xff))
+        
+        // 1. On cherche l'IP actuelle (Ethernet ou Wi-Fi)
+        var activeIp = ""
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val iface = interfaces.nextElement()
+                val addrs = iface.inetAddresses
+                while (addrs.hasMoreElements()) {
+                    val addr = addrs.nextElement()
+                    // On veut une IPv4 qui n'est pas le "localhost" (127.0.0.1)
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        activeIp = addr.hostAddress ?: ""
+                    }
+                }
+            }
+        } catch (e: Exception) { }
+
+        // 2. Si on a rien trouvé avec la méthode robuste, on tente le fallback Wi-Fi classique
+        if (activeIp.isEmpty() || activeIp == "0.0.0.0") {
+            val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+            val ip = wifiManager.connectionInfo.ipAddress
+            if (ip != 0) {
+                activeIp = String.format("%d.%d.%d.%d", (ip and 0xff), (ip shr 8 and 0xff), (ip shr 16 and 0xff), (ip shr 24 and 0xff))
+            }
+        }
+
+        // 3. On génère le préfixe final (ex: "192.168.1.")
+        val prefix = if (activeIp.isNotEmpty() && activeIp.contains(".")) {
+            activeIp.substring(0, activeIp.lastIndexOf('.') + 1)
+        } else {
+            "192.168.1." // Fallback de secours si vraiment rien n'est détecté
+        }
 
         scope.launch {
             val foundDevices = mutableListOf<String>()
