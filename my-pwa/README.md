@@ -25,6 +25,31 @@ Si le mirorring de Visual Studio ne fonctionne pas avec en USB avec:
 .\scrcpy.exe --video-encoder=OMX.google.h264.encoder --always-on-top --window-title="Mirroring RK3588"
 ```
 
+Pour utiliser plus facilement adb et scrcpy on va créer des alias de commande
+1. on va déplacer le dossier scrcpy dans "Programmes Files"
+2. on modifie le profile powershell pour créer des alias
+```powershell
+# où est sauvegarder le fichier profile ?
+$PROFILE
+```
+3. écrire les commande suivante dans le fichier, en modifiant suivant vos version et spécificités
+Set-Alias scrcpy "C:\Program Files\scrcpy-win64-v3.3.4\scrcpy-win64-v3.3.4\scrcpy.exe"
+Set-Alias adb "C:\Program Files\scrcpy-win64-v3.3.4\scrcpy-win64-v3.3.4\adb.exe"
+4. Relancer la console et vous pourrez utiliser directement les commandes scrcpy et adb
+
+Pour utiliser adb via Wifi-Direct
+```powershell
+# récupérer id du device
+adb devices
+# device connecté au Téléphone via USB
+adb -s ID_DEVICE tcpip 5555
+adb connect 192.168.1.XXXX:5555
+
+# pour se déconnecter
+adb disconnect 192.168.1.XXXX:5555
+adb -s ID_DEVICE usb
+```
+
 Si la tablette n'a pas accès à internet via Ethernet ou Wifi
 On utilise l'outil gnirehtet qui va permettre de partager la connexion internet du PC branché en USB à la tablette
 ```powershell
