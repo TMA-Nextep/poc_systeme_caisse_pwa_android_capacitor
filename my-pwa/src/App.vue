@@ -1,138 +1,151 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import { Network } from '@capacitor/network'
-import HelloWorld from './components/HelloWorld.vue'
-import { StatusBar } from '@capacitor/status-bar';
-import { Capacitor, registerPlugin } from '@capacitor/core'; 
+  import { ref, onMounted } from 'vue'
+  import { Network } from '@capacitor/network'
+  import HelloWorld from './components/HelloWorld.vue'
+  import { StatusBar } from '@capacitor/status-bar';
+  import { Capacitor, registerPlugin } from '@capacitor/core'; 
 
-// Enregistrement du plugin
-const Hardware = Capacitor.isNativePlatform() 
-  ? registerPlugin('HardwarePlugin') 
-  : null;
+  // Enregistrement du plugin
+  const Hardware = Capacitor.isNativePlatform() 
+    ? registerPlugin('HardwarePlugin') 
+    : null;
 
-// --- VARIABLES RÉACTIVES ---
-const isOnline = ref(true)
-const connectionType = ref('unknown')
-const isPrinting = ref(false)
-const isScanning = ref(false)
-const foundPrinters = ref([])
-const selectedIp = ref('192.168.1.50')
-const scannedData = ref('')
-const scannedCodes = ref([])
-const scanInput = ref(null)
+  // --- VARIABLES RÉACTIVES ---
+  const isOnline = ref(true)
+  const connectionType = ref('unknown')
+  const isPrinting = ref(false)
+  const isScanning = ref(false)
+  const foundPrinters = ref([])
+  const selectedIp = ref('192.168.1.50')
+  const scannedData = ref('')
+  const scannedCodes = ref([])
+  const scanInput = ref(null)
 
-// AJOUT DES VARIABLES DE SCAN Network MANQUANTES
-const currentScanningNetworkIp = ref('')
-const scannedNetworkIpsCount = ref(0)
+  // AJOUT DES VARIABLES DE SCAN Network MANQUANTES
+  const currentScanningNetworkIp = ref('')
+  const scannedNetworkIpsCount = ref(0)
 
-onMounted(async () => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await StatusBar.hide();
-    } catch (error) {
-      console.error('Erreur StatusBar:', error);
+  onMounted(async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await StatusBar.hide();
+      } catch (error) {
+        console.error('Erreur StatusBar:', error);
+      }
     }
-  }
 
-  const status = await Network.getStatus()
-  isOnline.value = status.connected
-  connectionType.value = status.connectionType
-
-  await Network.addListener('networkStatusChange', status => {
+    const status = await Network.getStatus()
     isOnline.value = status.connected
     connectionType.value = status.connectionType
+
+    await Network.addListener('networkStatusChange', status => {
+      isOnline.value = status.connected
+      connectionType.value = status.connectionType
+    })
+
+    // ON PLACE LES ÉCOUTEURS ICI, DANS LE ONMOUNTED
+    if (Hardware) {
+      await Hardware.addListener('scanProgress', (data) => {
+        currentScanningNetworkIp.value = data.scanning;
+        scannedNetworkIpsCount.value++;
+      });
+
+      await Hardware.addListener('printerFound', (data) => {
+        if (!foundPrinters.value.includes(data.ip)) {
+          foundPrinters.value.push(data.ip);
+        }
+      });
+    }
   })
 
-  // ON PLACE LES ÉCOUTEURS ICI, DANS LE ONMOUNTED
-  if (Hardware) {
-    await Hardware.addListener('scanProgress', (data) => {
-      currentScanningNetworkIp.value = data.scanning;
-      scannedNetworkIpsCount.value++;
-    });
+  // --- MÉTHODES ---
 
-    await Hardware.addListener('printerFound', (data) => {
-      if (!foundPrinters.value.includes(data.ip)) {
-        foundPrinters.value.push(data.ip);
+  const handleBarcode = (e) => {
+    if (e.key === 'Enter') {
+      if (scannedData.value.trim() !== '') {
+        // On ajoute le code au début de la liste (unshift)
+        // On ajoute aussi l'heure pour s'y retrouver
+        const newEntry = {
+          code: scannedData.value,
+          time: new Date().toLocaleTimeString()
+        };
+        
+        scannedCodes.value.unshift(newEntry);
+        
+        // On vide le champ pour le prochain scan
+        scannedData.value = '';
       }
-    });
-  }
-})
-
-// --- MÉTHODES ---
-
-const handleBarcode = (e) => {
-  if (e.key === 'Enter') {
-    if (scannedData.value.trim() !== '') {
-      // On ajoute le code au début de la liste (unshift)
-      // On ajoute aussi l'heure pour s'y retrouver
-      const newEntry = {
-        code: scannedData.value,
-        time: new Date().toLocaleTimeString()
-      };
-      
-      scannedCodes.value.unshift(newEntry);
-      
-      // On vide le champ pour le prochain scan
-      scannedData.value = '';
     }
-  }
-};
+  };
 
-const clearList = () => {
-  scannedCodes.value = [];
-};
+  const clearList = () => {
+    scannedCodes.value = [];
+  };
 
-const keepFocus = () => {
-  if (scanInput.value) scanInput.value.focus();
-};
+  const keepFocus = () => {
+    if (scanInput.value) scanInput.value.focus();
+  };
 
-const scanForPrinters = async () => {
-  if (!Hardware) return;
-  isScanning.value = true;
-  foundPrinters.value = [];
-  scannedNetworkIpsCount.value = 0;
-  try {
-    await Hardware.discoverPrinters();
-  } catch (e) {
-    console.error(e);
-  } finally {
-    isScanning.value = false;
-    currentScanningNetworkIp.value = 'Terminé';
-  }
-};
+  const scanForPrinters = async () => {
+    if (!Hardware) return;
+    isScanning.value = true;
+    foundPrinters.value = [];
+    scannedNetworkIpsCount.value = 0;
+    try {
+      await Hardware.discoverPrinters();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isScanning.value = false;
+      currentScanningNetworkIp.value = 'Terminé';
+    }
+  };
 
-const selectPrinter = (ip) => {
-  selectedIp.value = ip;
-};
+  const selectPrinter = (ip) => {
+    selectedIp.value = ip;
+  };
 
-const handleRealPrint = async () => {
-  if (!Hardware) return;
-  try {
-    await Hardware.realPrint({
-      ip: selectedIp.value,
-      port: 9100,
-      content: 'BON DE COMMANDE\n----------------\n1x Pizza Regina\n1x Coca Cola\n----------------\nMerci !'
-    });
-    alert("Impression lancée sur " + selectedIp.value);
-  } catch (e) {
-    alert("Erreur : " + e.message);
-  }
-};
+  const handleRealPrint = async () => {
+    if (!Hardware) return;
+    try {
+      await Hardware.realPrint({
+        ip: selectedIp.value,
+        port: 9100,
+        content: 'BON DE COMMANDE\n----------------\n1x Pizza Regina\n1x Coca Cola\n----------------\nMerci !'
+      });
+      alert("Impression lancée sur " + selectedIp.value);
+    } catch (e) {
+      alert("Erreur : " + e.message);
+    }
+  };
 
-const handleTestPrint = async () => {
-  if (!Capacitor.isNativePlatform() || !Hardware) {
-    alert("La vibration ne fonctionne que sur un vrai smartphone Android.");
-    return;
-  }
-  isPrinting.value = true;
-  try {
-    await Hardware.simulatePrint({ duration: 2 });
-  } catch (e) {
-    console.error("Erreur Hardware:", e);
-  } finally {
-    setTimeout(() => { isPrinting.value = false; }, 2000);
-  }
-};
+  const handleTestPrint = async () => {
+    if (!Capacitor.isNativePlatform() || !Hardware) {
+      alert("La vibration ne fonctionne que sur un vrai smartphone Android.");
+      return;
+    }
+    isPrinting.value = true;
+    try {
+      await Hardware.simulatePrint({ duration: 2 });
+    } catch (e) {
+      console.error("Erreur Hardware:", e);
+    } finally {
+      setTimeout(() => { isPrinting.value = false; }, 2000);
+    }
+  };
+
+  const quitKiosk = async () => {
+    if (Hardware) {
+      try {
+        await Hardware.quitKioskMode();
+      } catch (e) {
+        console.error("Erreur lors de la sortie du mode Kiosk:", e);
+        alert("Erreur : " + e.message);
+      }
+    } else {
+      alert("Le plugin Hardware n'est pas disponible (Plateforme non-native)");
+    }
+  };
 </script>
 
 <template>
@@ -216,6 +229,16 @@ const handleTestPrint = async () => {
   </div>
 
   <HelloWorld />
+
+  <div class="container">
+    
+    <div class="section admin-demo">
+      <button @click="quitKiosk" class="quit-btn">
+        🔓 Quitter le mode Kiosk (Démo)
+      </button>
+    </div>
+
+    </div>
 </template>
 
 <style scoped>
@@ -320,4 +343,26 @@ const handleTestPrint = async () => {
   color: #9ca3af;
   font-style: italic;
 }
+
+.admin-demo {
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
+
+.quit-btn {
+  background-color: #ef4444; /* Rouge */
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 2px solid #b91c1c;
+  width: 100%;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.quit-btn:active {
+  background-color: #b91c1c;
+}
+
 </style>

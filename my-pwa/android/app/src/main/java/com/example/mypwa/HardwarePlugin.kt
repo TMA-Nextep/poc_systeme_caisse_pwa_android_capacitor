@@ -147,4 +147,17 @@ class HardwarePlugin : Plugin() {
             }
         }
     }
+
+    @PluginMethod
+    fun quitKioskMode(call: PluginCall) {
+        val activity = activity as? MainActivity
+        activity?.runOnUiThread {
+            try {
+                activity.stopKioskMode()
+                call.resolve(JSObject().put("status", "Sortie du mode Kiosk effectuée"))
+            } catch (e: Exception) {
+                call.reject("Erreur lors de la sortie : ${e.message}")
+            }
+        }
+    }
 }

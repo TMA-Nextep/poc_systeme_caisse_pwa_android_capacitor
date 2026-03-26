@@ -36,6 +36,26 @@ Dans le dossier gnirehtet lancer la commande de tunnel "vpn"
 .\gnirehtet.exe run
 ```
 
+Comment appliquer Device Owner ?
+1. Supprimer tous les comptes Google
+2. lancer commande adb
+```powershell
+adb shell dpm set-device-owner com.example.mypwa/.AdminReceiver
+
+# Pour aller le device owner
+adb shell dpm remove-active-admin com.example.mypwa/.AdminReceiver
+```
+
+Comment sortir du mode Kiosk Vérouillé
+```powershell
+# checker si mode kiosk activé 
+adb shell dumpsys activity activities | findstr mLockTaskModeState
+# LOCKED = Activé
+
+adb shell am stop-lock-task
+```
+
+
 ### 2. Installation et Préparation (Root : `my-pwa`)
 Si vous venez de cloner le projet, suivez cet ordre précis :
 
