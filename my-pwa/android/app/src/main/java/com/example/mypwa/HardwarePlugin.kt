@@ -147,6 +147,25 @@ class HardwarePlugin : Plugin() {
             }
         }
     }
+    
+    @PluginMethod
+    fun enterKioskMode(call: PluginCall) {
+        val myActivity = activity as? MainActivity
+        if (myActivity == null) {
+            call.reject("Impossible de trouver MainActivity")
+            return
+        }
+
+        myActivity.runOnUiThread {
+            try {
+                // On appelle une méthode que nous allons créer dans MainActivity
+                myActivity.startKioskModeManual() 
+                call.resolve(JSObject().put("status", "Entrée en mode Kiosk réussie"))
+            } catch (e: Exception) {
+                call.reject("Erreur lors de l'entrée : ${e.message}")
+            }
+        }
+    }
 
     @PluginMethod
     fun quitKioskMode(call: PluginCall) {

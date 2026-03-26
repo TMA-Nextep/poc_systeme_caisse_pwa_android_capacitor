@@ -62,6 +62,23 @@ public class MainActivity extends BridgeActivity {
         makeFullScreen();
     }
 
+    public void startKioskModeManual() {
+    try {
+        if (dpm.isDeviceOwnerApp(getPackageName())) {
+            // On s'assure que les packages sont autorisés
+            String[] packages = {getPackageName()};
+            dpm.setLockTaskPackages(adminName, packages);
+            
+            // On relance le verrouillage
+            startLockTask();
+            makeFullScreen(); // On force le plein écran
+            Toast.makeText(this, "Mode Kiosk Réactivé", Toast.LENGTH_SHORT).show();
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+
     // Fonction pour sortir du mode Kiosk (à appeler via un bouton caché par exemple)
     public void stopKioskMode() {
         try {

@@ -134,6 +134,19 @@
     }
   };
 
+  const enterKiosk = async () => {
+  if (Hardware) {
+    try {
+      await Hardware.enterKioskMode();
+    } catch (e) {
+      console.error("Erreur lors de l'entrée en mode Kiosk:", e);
+      alert("Erreur : " + e.message);
+    }
+  } else {
+    alert("Le plugin Hardware n'est pas disponible");
+  }
+};
+
   const quitKiosk = async () => {
     if (Hardware) {
       try {
@@ -233,9 +246,14 @@
   <div class="container">
     
     <div class="section admin-demo">
-      <button @click="quitKiosk" class="quit-btn">
-        🔓 Quitter le mode Kiosk (Démo)
-      </button>
+      <div class="button-group">
+        <button @click="enterKiosk" class="enter-btn">
+          🔒 Entrer en mode Kiosk
+        </button>
+        <button @click="quitKiosk" class="quit-btn">
+          🔓 Quitter le mode Kiosk (Démo)
+        </button>
+      </div>      
     </div>
 
     </div>
@@ -349,7 +367,25 @@
   margin-bottom: 20px;
 }
 
+.button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.enter-btn {
+  background-color: #10b981; /* Vert */
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 2px solid #059669;
+  flex: 1;
+  font-weight: bold;
+  cursor: pointer;
+}
+
 .quit-btn {
+  flex: 1;
   background-color: #ef4444; /* Rouge */
   color: white;
   padding: 12px 20px;
