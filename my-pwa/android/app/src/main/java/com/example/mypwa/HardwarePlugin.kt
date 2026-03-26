@@ -82,16 +82,24 @@ class HardwarePlugin : Plugin() {
         var activeIp = ""
         try {
             val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val iface = interfaces.nextElement()
-                val addrs = iface.inetAddresses
-                while (addrs.hasMoreElements()) {
-                    val addr = addrs.nextElement()
-                    // On veut une IPv4 qui n'est pas le "localhost" (127.0.0.1)
-                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
-                        activeIp = addr.hostAddress ?: ""
+            val interfaceList = interfaces.toList()
+
+            // On cherche d'abord une interface qui commence par eth (Ethernet) ou wlan (Wi-Fi)
+            for (iface in interfaceList) {
+                if (iface.isLoopback || !iface.isUp) continue
+                
+                // On cible les vraies interfaces physiques
+                val name = iface.name.lowercase()
+                if (name.contains("eth") || name.contains("wlan") || name.contains("enp") || name.contains("en0")) {
+                    val addrs = iface.inetAddresses
+                    for (addr in addrs) {
+                        if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                            activeIp = addr.hostAddress ?: ""
+                            break // On a trouvé notre IP physique, on sort de la boucle des adresses
+                        }
                     }
                 }
+                if (activeIp.isNotEmpty()) break // On sort de la boucle des interfaces
             }
         } catch (e: Exception) { }
 
