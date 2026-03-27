@@ -60,6 +60,11 @@
 
   // --- MÉTHODES ---
 
+const forceReload = () => {
+  // On vide le cache et on recharge la page
+  window.location.reload(true);
+};
+
   const handleBarcode = (e) => {
     if (e.key === 'Enter') {
       if (scannedData.value.trim() !== '') {
@@ -162,8 +167,14 @@
 </script>
 
 <template>
-  <div :class="['status-bar', isOnline ? 'online' : 'offline']">
-    {{ isOnline ? '🟢 Connecté (' + connectionType + ')' : '🔴 Hors-ligne' }}
+  
+  <div class="top-control-bar">
+    <div :class="['status-bar', isOnline ? 'online' : 'offline']">
+      {{ isOnline ? '🟢 Connecté (' + connectionType + ')' : '🔴 Hors-ligne' }}
+    </div>
+    <button @click="forceReload" class="reload-btn">
+      🔄 Actualiser
+    </button>
   </div>
 
   <div class="container">
@@ -276,9 +287,33 @@
 .scan-btn { background-color: #10b981; color: white; padding: 10px 20px; border-radius: 8px; border: none; width: 100%; font-weight: bold; }
 .actions { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .vibrate-btn { background-color: #6b7280; color: white; padding: 10px; border-radius: 8px; border: none; width: 100%; }
-.status-bar { padding: 10px; text-align: center; font-weight: bold; }
+
+.top-control-bar {
+  display: flex;
+  width: 100%;
+  height: 50px; /* Hauteur fixe pour un alignement propre */
+  align-items: stretch;
+}
+
+.status-bar, .reload-btn {
+  flex: 1; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: none;
+  font-family: sans-serif;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.status-bar {
+  padding: 0; /* Le flex s'occupe de l'espacement */
+}
+
 .online { background-color: #d4edda; color: #155724; }
 .offline { background-color: #f8d7da; color: #721c24; }
+
 .print-btn { padding: 15px 30px; font-size: 18px; font-weight: bold; border-radius: 12px; border: none; background-color: #4f46e5; color: white; width: 100%; cursor: pointer; }
 .print-btn:disabled { background-color: #9ca3af; }
 .scanner-section {
@@ -399,6 +434,20 @@
 
 .quit-btn:active {
   background-color: #b91c1c;
+}
+
+.reload-btn {
+  position: static; /* Annule le fixed précédent */
+  background-color: #f3f4f6;
+  color: #374151;
+  border-left: 1px solid #ddd; /* Séparation visuelle */
+  cursor: pointer;
+  border-radius: 0; /* Carré pour coller aux bords */
+  opacity: 1;
+}
+
+.reload-btn:active {
+  background-color: #e5e7eb;
 }
 
 </style>

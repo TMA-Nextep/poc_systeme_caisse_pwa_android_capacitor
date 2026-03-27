@@ -130,3 +130,30 @@ Pour tester l'application dans un environnement simulé (Émulateur) :
 3.  **Hot Reload (Optionnel) :**
     Si vous modifiez le code Web, n'oubliez pas de refaire :
     `npm run build` puis `npx cap copy android` pour voir les changements dans l'émulateur.
+
+### 5. Passage au Web to Native
+Voici les différents points à prendre en compte pour utiliser l'app en mode web to Native. C'est à dire que l'application va se connecter/faire appel à un serveur distant pour l'interface. Mais l'application garde la faculté de faire des appels système/matériel pour par exemple :
+- se mettre en mode kiosk
+- scanner le réseau
+- envoyer des ordres à l'imprimante via le réseau local
+- recevoir des données (scanner, balance) via le réseau local
+- etc...
+
+```powershell
+# dans un premier terminal 
+## en mode dev, lancer le serveur localement sur l'adresse ip de l'host dans le reseau local + port spécifique
+npx serve -s dist -l tcp://192.168.1.100:5173
+
+# dans un deuxième terminal
+## lancer l'update automatique de Vue
+npm run watch
+```
+
+#### Dans le fichier capacitor.config.json 
+Attention l'IP et le port dans le fichier doivent correspondre à l'IP et port spécifié dans la commande powershell
+```
+"url": "http://192.168.1.100:5173"
+```
+Attention à allowNavigation qui whitelist les IP
+
+Attention à cleartext qui est utile uniquement en HTTP. Changer cela quand on passe en HTTPS !
