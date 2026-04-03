@@ -4,6 +4,8 @@ import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.BatteryManager
+
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -11,12 +13,48 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 
 import kotlinx.coroutines.*
+
 import java.net.Socket
 import java.io.OutputStream
 
 @CapacitorPlugin(name = "HardwarePlugin")
 class HardwarePlugin : Plugin() {
 
+    @PluginMethod
+    fun checkHardwareStatus(call: PluginCall) {
+        val ip = call.getString("ip") ?: ""
+        val port = 9100
+
+        scope.launch(Dispatchers.IO) {
+            val data = JSObject()
+            
+            // 1. Check Imprimante
+            var isPrinterOnline = false
+            if (ip.isNotEmpty()) {
+                try {
+                    val socket = java.net.Socket()
+                    socket.connect(java.net.InetSocketAddress(ip, port), 500) // Timeout court
+                    socket.close()
+                    isPrinterOnline = true
+                } catch (e: Exception) { isPrinterOnline = false }
+            }
+            data.put("printer", if (isPrinterOnline) "online" else "offline")
+
+            // 2. Check Batterie
+            val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            val batLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            data.put("battery", batLevel)
+
+            // 3. Scanner (On considère online si le plugin est chargé pour ce POC)
+            data.put("scanner", "online")
+
+            // On envoie l'info à Vue.js
+            notifyListeners("hardwareStatusChanged", data)
+            
+            call.resolve(data)
+        }
+    }
+    
     @PluginMethod
     fun simulatePrint(call: PluginCall) {
         val seconds = call.getInt("duration", 1) ?: 1

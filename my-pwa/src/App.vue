@@ -1,31 +1,62 @@
 <script setup>
-  import { ref, onMounted } from 'vue'
+  import { ref, onMounted, computed } from 'vue'
   import { Network } from '@capacitor/network'
   import HelloWorld from './components/HelloWorld.vue'
   import { StatusBar } from '@capacitor/status-bar';
   import { Capacitor, registerPlugin } from '@capacitor/core'; 
+  import { Device } from '@capacitor/device' // Import du plugin
 
+  import { bus } from './services/eventBus';
+  import './services/monitoring';
+  
   // Enregistrement du plugin
   const Hardware = Capacitor.isNativePlatform() 
     ? registerPlugin('HardwarePlugin') 
     : null;
 
   // --- VARIABLES RÉACTIVES ---
+  const deviceUUID = ref('Chargement...')
+  const serverIP = import.meta.env.VITE_SERVER_IP;
+  const grafanaUrl = computed(() => {
+    return `http://${serverIP}:3000/d-solo/ad4tflq/test-dash?orgId=1&from=now-30m&to=now&timezone=browser&panelId=1`;
+  });
   const isOnline = ref(true)
   const connectionType = ref('unknown')
   const isPrinting = ref(false)
   const isScanning = ref(false)
   const foundPrinters = ref([])
   const selectedIp = ref('192.168.1.50')
-  const scannedData = ref('')
   const scannedCodes = ref([])
+  const isSelectionMode = ref(false)
   const scanInput = ref(null)
+  const scannedData = ref('')
+
+  let longPressTimer = null
 
   // AJOUT DES VARIABLES DE SCAN Network MANQUANTES
   const currentScanningNetworkIp = ref('')
   const scannedNetworkIpsCount = ref(0)
 
+  // --- RÉCUPÉRATION DU DEVICE UUID ---
+  const getDeviceIdentifier = async () => {
+    try {
+      // On vérifie si on est sur un ordinateur (web)
+      if (Capacitor.getPlatform() === 'web') {
+        deviceUUID.value = "PC-Developpement";
+      } else {
+        // Si on est sur Android ou iOS, on prend le vrai ID unique
+        const info = await Device.getId();
+        deviceUUID.value = info.identifier;
+      }
+    } catch (error) {
+      console.warn("Erreur identification device:", error);
+      deviceUUID.value = "Device-Inconnu";
+    }
+  };
+
   onMounted(async () => {
+    await getDeviceIdentifier();
+
     if (Capacitor.isNativePlatform()) {
       try {
         await StatusBar.hide();
@@ -55,6 +86,20 @@
           foundPrinters.value.push(data.ip);
         }
       });
+      await Hardware.addListener('hardwareStatusChanged', (info) => {
+            console.log("📊 Stats reçues de Kotlin:", info);
+            bus.emit('hardware-update', info); // On envoie au service monitoring.js
+        });
+
+        // 2. Lancement de la boucle de vérification (Heartbeat)
+        setInterval(async () => {
+            try {
+                // On demande à Kotlin de faire un check
+                await Hardware.checkHardwareStatus({ ip: selectedIp.value });
+            } catch (e) {
+                console.error("Erreur check hardware", e);
+            }
+        }, 10000); // Toutes les 10 secondes
     }
   })
 
@@ -72,7 +117,8 @@ const forceReload = () => {
         // On ajoute aussi l'heure pour s'y retrouver
         const newEntry = {
           code: scannedData.value,
-          time: new Date().toLocaleTimeString()
+          time: new Date().toLocaleTimeString(),
+          selected: false
         };
         
         scannedCodes.value.unshift(newEntry);
@@ -83,8 +129,43 @@ const forceReload = () => {
     }
   };
 
+  const startPress = (item) => {
+    // Si on est déjà en mode sélection, pas besoin de timer
+    if (isSelectionMode.value) return;
+
+    longPressTimer = setTimeout(async () => {
+      isSelectionMode.value = true;
+      item.selected = true;
+      
+      // Feedback Haptique via ton plugin Kotlin
+      if (Hardware) {
+        await Hardware.simulatePrint({ duration: 0.05 }); // Vibration très courte de 50ms
+      }
+    }, 700); // 700ms pour déclencher l'appui long
+  };
+
+  const cancelPress = () => {
+    clearTimeout(longPressTimer);
+  };
+
+  const toggleItemSelection = (item) => {
+    if (isSelectionMode.value) {
+      item.selected = !item.selected;
+      // Si plus aucun item n'est sélectionné, on quitte le mode automatique
+      if (!scannedCodes.value.some(i => i.selected)) {
+        isSelectionMode.value = false;
+      }
+    }
+  };
+
+  const deleteSelected = () => {
+    scannedCodes.value = scannedCodes.value.filter(i => !i.selected);
+    isSelectionMode.value = false;
+  };
+
   const clearList = () => {
     scannedCodes.value = [];
+    isSelectionMode.value = false;
   };
 
   const keepFocus = () => {
@@ -235,20 +316,55 @@ const forceReload = () => {
     <div class="history-container">
       <div class="history-header">
         <span>Historique ({{ scannedCodes.length }})</span>
-        <button @click="clearList" class="clear-btn" v-if="scannedCodes.length > 0">
-          🗑️ Effacer tout
-        </button>
+        <div class="header-actions">
+          <button v-if="isSelectionMode" @click="deleteSelected" class="delete-btn">
+            🗑️ Supprimer la sélection
+          </button>
+          <button v-else @click="clearList" class="clear-btn">
+            Effacer tout
+          </button>
+        </div>
       </div>
 
       <ul class="code-list">
-        <li v-for="(item, index) in scannedCodes" :key="index" class="code-item">
-          <span class="code-text">{{ item.code }}</span>
+        <li 
+          v-for="(item, index) in scannedCodes" 
+          :key="index" 
+          class="code-item"
+          :class="{ 'is-selected': item.selected, 'selection-mode': isSelectionMode }"
+          @touchstart="startPress(item)"
+          @touchend="cancelPress"
+          @mousedown="startPress(item)" 
+          @mouseup="cancelPress"
+          @click="toggleItemSelection(item)"
+        >
+          <div class="code-info">
+            <span v-if="isSelectionMode" class="checkbox">
+              {{ item.selected ? '✅' : '⚪' }}
+            </span>
+            <span class="code-text">{{ item.code }}</span>
+          </div>
           <span class="code-time">{{ item.time }}</span>
         </li>
-        <li v-if="scannedCodes.length === 0" class="empty-msg">
-          Aucun scan pour le moment
-        </li>
       </ul>
+    </div>
+  </div>
+
+  <div class="admin-dashboard">
+    <h2>GESTION ADMIN</h2>
+    <p><strong> Visualisation Grafana</strong></p>
+    <div class="device-info-banner">
+      <p>🆔 <strong>Device UUID :</strong> {{ deviceUUID }}</p>
+      <p>🌐 <strong>Serveur :</strong> {{ serverIP }}</p>
+    </div>
+    
+    <div class="iframe-container">
+      <iframe 
+        :src="grafanaUrl" 
+        width="100%" 
+        height="300" 
+        frameborder="0">
+      </iframe>
     </div>
   </div>
 
@@ -373,11 +489,48 @@ const forceReload = () => {
 }
 
 .code-item {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none; /* Bloque le menu contextuel Android/iOS */
+  
   display: flex;
   justify-content: space-between;
-  padding: 10px;
-  border-bottom: 1px solid #f3f4f6;
-  font-family: monospace;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.code-item.selection-mode {
+  cursor: pointer;
+}
+
+.code-item.is-selected {
+  background-color: #e0e7ff; /* Bleu clair pour indiquer la sélection */
+}
+
+.code-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.checkbox {
+  font-size: 1.2rem;
+}
+
+.delete-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .code-text {
@@ -448,6 +601,12 @@ const forceReload = () => {
 
 .reload-btn:active {
   background-color: #e5e7eb;
+}
+
+.iframe-container {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 </style>
