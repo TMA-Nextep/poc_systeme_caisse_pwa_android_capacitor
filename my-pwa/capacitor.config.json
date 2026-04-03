@@ -3,12 +3,10 @@
   "appName": "my.pwa.app",
   "webDir": "dist",
   "server": {
-    "url": "http://192.168.1.100:5173",
+    "url": "http://192.168.1.39:5173",
     "cleartext": true,
     "allowNavigation": [
-      "192.168.1.100",
-      "192.168.1.102",
-      "192.168.1.103"
+      "192.168.1.*"
     ]
   }
 }

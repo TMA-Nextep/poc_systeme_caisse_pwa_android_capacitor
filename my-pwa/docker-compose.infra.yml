@@ -1,0 +1,41 @@
+services:
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminadmin
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=mQwQGjsApTynH5qu_a0tOHbHuae9XvtCQFs_IMKEoZk3wlQLONF_jHl04QC5jOI7pO-Ti9yGa9Uz8_pi8CARpw==
+      - DOCKER_INFLUXDB_INIT_ORG=my_org
+      - DOCKER_INFLUXDB_INIT_BUCKET=poc_pos
+      - DOCKER_INFLUXDB_INIT_RETENTION=30d
+    networks:
+      - monitoring_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true # Autorise l'intégration dans ta WebApp
+      - GF_AUTH_ANONYMOUS_ENABLED=true  # Pour visualiser sans login (à sécuriser plus tard)
+      - GF_SMTP_ENABLED=true             # Configuration Email (voir section suivante)
+    depends_on:
+      - influxdb
+    networks:
+      - monitoring_network
+
+volumes:
+  influxdb-data:
+  grafana-data:
+
+networks:
+  monitoring_network:

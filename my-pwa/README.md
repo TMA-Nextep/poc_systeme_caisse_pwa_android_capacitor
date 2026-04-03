@@ -20,8 +20,9 @@ Si le mirorring de Visual Studio ne fonctionne pas avec en USB avec:
 3. se placer dans le dossier
 
 ```powershell
-.\adb.exe shell wm size reset
-.\adb.exe shell wm size 1920x1920
+adb shell settings put system user_rotation 1
+adb shell wm size reset
+adb shell wm size 1920x1920
 .\scrcpy.exe --video-encoder=OMX.google.h264.encoder --always-on-top --window-title="Mirroring RK3588"
 ```
 
@@ -90,16 +91,16 @@ Si vous venez de cloner le projet, suivez cet ordre précis :
 ```powershell
 cd my-pwa
 
-# 1. Installer les dépendances (avec gestion des conflits Vite/PWA)
-npm install --legacy-peer-deps
+# Installation des dépendances web et outils de build
+npm install
 
-# 2. Builder le projet Web (génère le dossier /dist)
-npm run build
+# Installation des plugins natifs Capacitor
+npm install @capacitor/device @capacitor/network @capacitor/status-bar @capacitor/preferences
 
-# 3. Ajouter la plateforme Android (si non présente)
-npx cap add android
+# Installation de l'outil pour gérer le .env dans les scripts Node
+npm install dotenv --save-dev
 
-# 4. Synchroniser (Crucial : copie le /dist et met à jour les plugins)
+# Synchronisation avec le dossier Android
 npx cap sync android
 ```
 
@@ -149,11 +150,35 @@ npx serve -s dist -l tcp://192.168.1.100:5173
 npm run watch
 ```
 
-#### Dans le fichier capacitor.config.json 
-Attention l'IP et le port dans le fichier doivent correspondre à l'IP et port spécifié dans la commande powershell
+#### 6. Dans le fichier capacitor.config.json 
+le fichier est maintenant mise à jour grâce au fichier update-config.js
+```powershell
+# Met à jour capacitor.config.json + Build Vue + Sync Android
+npm run build-app
 ```
-"url": "http://192.168.1.100:5173"
-```
-Attention à allowNavigation qui whitelist les IP
-
 Attention à cleartext qui est utile uniquement en HTTP. Changer cela quand on passe en HTTPS !
+
+#### 7. Lancement de l'infrastructure (Docker)
+Pour démarrer la base de données et l'outil de visualisation.
+
+```powershell
+# Démarrer InfluxDB et Grafana en arrière-plan
+docker compose -f .\docker-compose.infra.yml up -d
+
+# Vérifier que les conteneurs tournent bien
+docker compose -f .\docker-compose.infra.yml ps
+
+# Arrêter l'infrastructure (sans perdre les données)
+docker compose -f .\docker-compose.infra.yml stop
+```
+
+Maintenance influxDB - Commandes utiles pour la gestion des utilisateurs et mots de passe.
+```powershell
+# Changer le mot de passe admin sans tout réinstaller
+docker exec -it influxdb influx user password -n admin -p TON_NOUVEAU_MDP
+
+# Tout réinitialiser (ATTENTION : supprime TOUTES les données et dashboards)
+docker compose -f .\docker-compose.infra.yml down -v
+docker compose -f .\docker-compose.infra.yml up -d
+```
+
